@@ -66,6 +66,10 @@ button { background: #ffa400; color: #0f172a; border: none; padding: 11px 16px; 
 button:hover { background: #057931; color: #ffffff; box-shadow: 0 4px 12px rgba(5,121,49,0.25); }
 button:active { transform: translateY(1px) scale(0.99); }
 button:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(255,164,0,0.35); }
+.location-button { background: #ffffff; color: #0f172a; border: 2px solid #cbd5e1; padding: 11px 16px; border-radius: 10px; cursor: pointer; font-weight: 700; letter-spacing: 0.2px; box-shadow: 0 2px 8px rgba(15,23,42,0.08); transition: transform 0.06s ease, filter 0.2s ease, box-shadow 0.2s ease, background 0.25s ease, color 0.25s ease, border-color 0.25s ease; }
+.location-button:hover { background: #f8fafc; border-color: #ffa400; color: #0f172a; box-shadow: 0 4px 12px rgba(255,164,0,0.15); }
+.location-button:active { transform: translateY(1px) scale(0.99); }
+.location-button:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(255,164,0,0.35); }
 .status { margin-top: 12px; min-height: 20px; color: #334155; }
 .links { margin-top: 16px; }
 .links a { color: #057931; text-decoration: none; font-weight: 600; transition: color .2s ease, text-shadow .2s ease; }
@@ -89,8 +93,8 @@ footer p { margin: 0; font-size: 14px; color: #e5e7eb; text-align: center; }
 .pulse-glow { animation: pulseGlow 2.2s ease-in-out infinite; }
 @keyframes pulseGlow { 0%, 100% { box-shadow: 0 0 0 0 rgba(255,164,0,0.35); } 50% { box-shadow: 0 0 0 8px rgba(255,164,0,0.08); } }
 
-/* arrow CTA */
-.cta-arrow { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 6px; color: #0f172a; text-decoration: none; font-weight: 600; cursor: pointer; transition: color .2s ease; }
-.cta-arrow:hover { color: #057931; }
-.cta-arrow svg path { transition: stroke .2s ease; }
-.cta-arrow:hover svg path { stroke: #057931; }
+/* CTA button */
+.cta-button { position: absolute; left: 50%; bottom: 20px; transform: translateX(-50%); background: #ffa400; color: #0f172a; border: none; padding: 12px 24px; border-radius: 10px; cursor: pointer; font-weight: 700; letter-spacing: 0.2px; box-shadow: 0 2px 8px rgba(15,23,42,0.08); transition: transform 0.06s ease, filter 0.2s ease, box-shadow 0.2s ease, background 0.25s ease, color 0.25s ease; }
+.cta-button:hover { background: #057931; color: #ffffff; box-shadow: 0 4px 12px rgba(5,121,49,0.25); }
+.cta-button:active { transform: translateX(-50%) translateY(1px) scale(0.99); }
+.cta-button:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(255,164,0,0.35); }
