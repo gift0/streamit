@@ -40,7 +40,7 @@ header h1 { margin: 0; font-size: 20px; color: #0f172a; letter-spacing: 0.2px; }
 header .contact { display: flex; align-items: center; gap: 16px; color: #0f172a; flex-wrap: wrap; margin-left: auto; }
 header .contact .info { display: flex; align-items: center; gap: 12px; font-size: 14px; }
 header .contact .info span { color: #334155; }
-.support-button { background: #057931; color: #ffffff; border: none; padding: 10px 16px; border-radius: 8px; cursor: pointer; font-weight: 600; letter-spacing: 0.2px; box-shadow: 0 2px 8px rgba(15,23,42,0.08); transition: transform 0.1s ease, filter 0.2s ease, box-shadow 0.2s ease, background 0.25s ease, color 0.25s ease; }
+.support-button { background: #057931; color: #ffffff; border: none; padding: 10px 16px; border-radius: 8px; cursor: pointer; font-weight: 600; letter-spacing: 0.2px; box-shadow: 0 2px 8px rgba(15,23,42,0.08); transition: transform 0.1s ease, filter 0.2s ease, box-shadow 0.2s ease, background 0.25s ease, color 0.25s ease; text-decoration: none; display: inline-block; }
 .support-button:hover { background: #ffa400; color: #0f172a; box-shadow: 0 4px 12px rgba(255,164,0,0.25); }
 .support-button:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(255,164,0,0.35); }
 
