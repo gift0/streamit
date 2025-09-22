@@ -41,3 +41,17 @@ def get_bin(bin_id: int, db: Session = Depends(get_db)):
 	if not bin_obj:
 		raise HTTPException(status_code=404, detail="Bin not found")
 	return bin_obj
+
+# Reports
+@router.post("/reports", response_model=schemas.ReportRead)
+def create_report(report_in: schemas.ReportCreate, db: Session = Depends(get_db)):
+	bin_obj = db.query(models.Bin).filter(models.Bin.id == report_in.bin_id).first()
+	if not bin_obj:
+		raise HTTPException(status_code=404, detail="Bin not found")
+	report = models.Report(bin_id=report_in.bin_id, status=report_in.status)
+	db.add(report)
+	db.commit()
+	db.refresh(report)
+	# Notification (MVP): console log; integrate Twilio/Email later
+	print(f"NOTIFY: Bin {bin_obj.id} at '{bin_obj.location}' reported as {report.status} [lat={bin_obj.latitude}, lng={bin_obj.longitude}]")
+	return report
