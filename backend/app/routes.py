@@ -30,3 +30,7 @@ def create_bin(bin_in: schemas.BinCreate, db: Session = Depends(get_db)):
 	db.commit()
 	db.refresh(bin_obj)
 	return bin_obj
+
+@router.get("/bins", response_model=List[schemas.BinRead])
+def list_bins(db: Session = Depends(get_db)):
+	return db.query(models.Bin).order_by(models.Bin.id.desc()).all()
