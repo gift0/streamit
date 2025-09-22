@@ -2,6 +2,7 @@ from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, func, Floa
 from sqlalchemy.orm import relationship
 from .database import Base
 
+
 class Bin(Base):
     __tablename__ = "bins"
 
@@ -11,6 +12,7 @@ class Bin(Base):
     longitude = Column(Float, nullable=True, index=True)
 
     reports = relationship("Report", back_populates="bin", cascade="all, delete-orphan")
+
 
 class Report(Base):
     __tablename__ = "reports"
