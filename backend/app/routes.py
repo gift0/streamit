@@ -34,3 +34,10 @@ def create_bin(bin_in: schemas.BinCreate, db: Session = Depends(get_db)):
 @router.get("/bins", response_model=List[schemas.BinRead])
 def list_bins(db: Session = Depends(get_db)):
 	return db.query(models.Bin).order_by(models.Bin.id.desc()).all()
+
+@router.get("/bins/{bin_id}", response_model=schemas.BinWithReports)
+def get_bin(bin_id: int, db: Session = Depends(get_db)):
+	bin_obj = db.query(models.Bin).filter(models.Bin.id == bin_id).first()
+	if not bin_obj:
+		raise HTTPException(status_code=404, detail="Bin not found")
+	return bin_obj
