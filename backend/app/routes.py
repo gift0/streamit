@@ -55,3 +55,7 @@ def create_report(report_in: schemas.ReportCreate, db: Session = Depends(get_db)
 	# Notification (MVP): console log; integrate Twilio/Email later
 	print(f"NOTIFY: Bin {bin_obj.id} at '{bin_obj.location}' reported as {report.status} [lat={bin_obj.latitude}, lng={bin_obj.longitude}]")
 	return report
+
+@router.get("/reports", response_model=List[schemas.ReportRead])
+def list_reports(db: Session = Depends(get_db)):
+	return db.query(models.Report).order_by(models.Report.created_at.desc()).all()
