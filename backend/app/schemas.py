@@ -16,3 +16,23 @@ class BinRead(BinBase):
 
     class Config:
         from_attributes = True
+
+class ReportBase(BaseModel):
+    status: str = Field("full", example="full")
+
+
+class ReportCreate(ReportBase):
+    bin_id: int
+
+
+class ReportRead(ReportBase):
+    id: int
+    bin_id: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class BinWithReports(BinRead):
+    reports: List[ReportRead] = []
