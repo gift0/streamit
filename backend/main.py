@@ -20,7 +20,7 @@ from app.routes import router as api_router
 
 @asynccontextmanager
 # Manage startup and shutdown tasks.
-async def lifespan(app: FastAPI):
+async def lifespan(_: FastAPI):
     # Startup logic
     Base.metadata.create_all(bind=engine)
     yield

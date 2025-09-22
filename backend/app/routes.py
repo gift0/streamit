@@ -8,6 +8,8 @@ from . import models, schemas
 router = APIRouter()
 
 # Bins
+
+
 @router.post("/bins", response_model=schemas.BinRead)
 def create_bin(bin_in: schemas.BinCreate, db: Session = Depends(get_db)):
 	existing = db.query(models.Bin).filter(models.Bin.location == bin_in.location).first()
@@ -31,9 +33,11 @@ def create_bin(bin_in: schemas.BinCreate, db: Session = Depends(get_db)):
 	db.refresh(bin_obj)
 	return bin_obj
 
+
 @router.get("/bins", response_model=List[schemas.BinRead])
 def list_bins(db: Session = Depends(get_db)):
 	return db.query(models.Bin).order_by(models.Bin.id.desc()).all()
+
 
 @router.get("/bins/{bin_id}", response_model=schemas.BinWithReports)
 def get_bin(bin_id: int, db: Session = Depends(get_db)):
@@ -43,6 +47,8 @@ def get_bin(bin_id: int, db: Session = Depends(get_db)):
 	return bin_obj
 
 # Reports
+
+
 @router.post("/reports", response_model=schemas.ReportRead)
 def create_report(report_in: schemas.ReportCreate, db: Session = Depends(get_db)):
 	bin_obj = db.query(models.Bin).filter(models.Bin.id == report_in.bin_id).first()
@@ -55,6 +61,7 @@ def create_report(report_in: schemas.ReportCreate, db: Session = Depends(get_db)
 	# Notification (MVP): console log; integrate Twilio/Email later
 	print(f"NOTIFY: Bin {bin_obj.id} at '{bin_obj.location}' reported as {report.status} [lat={bin_obj.latitude}, lng={bin_obj.longitude}]")
 	return report
+
 
 @router.get("/reports", response_model=List[schemas.ReportRead])
 def list_reports(db: Session = Depends(get_db)):
