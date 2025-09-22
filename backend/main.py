@@ -15,3 +15,15 @@ app.add_middleware(
 	allow_headers=["*"],
 )
 
+# Create tables on startup (simple MVP; replace with Alembic later)
+@app.on_event("startup")
+def on_startup():
+	Base.metadata.create_all(bind=engine)
+
+
+app.include_router(api_router, prefix="/api")
+
+
+@app.get("/")
+def root():
+	return {"status": "ok", "message": "dumpTrac API"}
