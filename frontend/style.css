@@ -120,6 +120,31 @@ footer p { margin: 0; font-size: 14px; color: #e5e7eb; text-align: center; }
 .hero { position: relative; width: 100vw; height: 550px; border-radius: 0; overflow: hidden; border: none; margin-left: calc(-50vw + 50%); margin-right: calc(-50vw + 50%); }
 .hero h1 { color: #0f172a; }
 .hero p { color: #334155; }
+.hero h1 { color: #fff; }
+.hero p { color: #fff; }
+.hero video {
+	width: 100vw;
+	height: 100vw;
+	max-width: 100%;
+	max-height: 550px;
+	object-fit: cover;
+}
+@media (max-width: 640px) {
+	.hero {
+		height: 260px;
+	}
+	.hero video {
+		height: 260px;
+		min-height: 180px;
+		max-height: 260px;
+	}
+	.hero h1 {
+		font-size: 22px;
+	}
+	.hero p {
+		font-size: 15px;
+	}
+}
 .fade-in-up { animation: fadeInUp .8s ease-out both; }
 @keyframes fadeInUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
 .bounce { animation: bounce 1.4s infinite; }
