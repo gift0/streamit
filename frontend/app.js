@@ -154,6 +154,41 @@ function onDashboardPage() {
 	refreshDashboard();
 }
 
+// Typing effect for Smart Living (infinite loop)
+const typingText = "Smart Living";
+const typingElement = document.getElementById("typing-effect");
+let typingIndex = 0;
+let typingSpeed = 120;
+let erasingSpeed = 60;
+let isErasing = false;
+
+function typeEffectLoop() {
+    if (typingElement) {
+        if (!isErasing) {
+            typingElement.textContent = typingText.substring(0, typingIndex);
+            if (typingIndex < typingText.length) {
+                typingIndex++;
+                setTimeout(typeEffectLoop, typingSpeed);
+            } else {
+                isErasing = true;
+                setTimeout(typeEffectLoop, 1000); // Pause before erasing
+            }
+        } else {
+            typingElement.textContent = typingText.substring(0, typingIndex);
+            if (typingIndex > 0) {
+                typingIndex--;
+                setTimeout(typeEffectLoop, erasingSpeed);
+            } else {
+                isErasing = false;
+                setTimeout(typeEffectLoop, 500); // Pause before typing again
+            }
+        }
+    }
+}
+
+typingElement.textContent = "";
+typeEffectLoop();
+
 // Init
 window.addEventListener("DOMContentLoaded", () => {
 	onIndexPage();
