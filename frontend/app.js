@@ -140,15 +140,41 @@ function ensureMap() {
 	return mapInstance;
 }
 
+// Updated marker rendering: red, clickable, tooltip with "Bin Full"
 function renderMapMarkers(reports, binIdToBin) {
 	const map = ensureMap();
 	if (!map || !markersLayer) return;
 	markersLayer.clearLayers();
+
 	for (const r of reports) {
 		const b = binIdToBin.get(r.bin_id);
 		if (!b || typeof b.latitude !== "number" || typeof b.longitude !== "number") continue;
-		const marker = L.marker([b.latitude, b.longitude]);
-		marker.bindPopup(`<strong>${b.location}</strong><br/>Status: ${r.status}<br/>${new Date(r.created_at).toLocaleString()}`);
+
+		// Red "Bin Full" div icon
+		const binIcon = L.divIcon({
+			html: `<div style="
+				background-color:red;
+				color:white;
+				font-weight:bold;
+				padding:2px 6px;
+				border-radius:4px;
+				text-align:center;
+				box-shadow:0 0 3px #000;
+			">Bin Full</div>`,
+			className: '',
+			iconSize: [60, 24],
+			iconAnchor: [30, 12],
+		});
+
+		const marker = L.marker([b.latitude, b.longitude], { icon: binIcon });
+
+		// Tooltip on hover with location + "Bin Full"
+		marker.bindTooltip(`${b.location || 'Unknown location'} - Bin Full`, {
+			permanent: false,
+			direction: 'top',
+			offset: [0, -10]
+		});
+
 		markersLayer.addLayer(marker);
 	}
 }
