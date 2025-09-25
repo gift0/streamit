@@ -58,8 +58,15 @@ def get_bin(bin_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/reports", response_model=schemas.ReportRead)
-def create_report(report_in: schemas.ReportCreate, db: Session = Depends(get_db)):
-    bin_obj = db.query(models.Bin).filter(models.Bin.id == report_in.bin_id).first()
+def create_report(
+    report_in: schemas.ReportCreate,
+    db: Session = Depends(get_db)
+):
+    bin_obj = (
+        db.query(models.Bin)
+        .filter(models.Bin.id == report_in.bin_id)
+        .first()
+    )
     if not bin_obj:
         raise HTTPException(status_code=404, detail="Bin not found")
     report = models.Report(
@@ -71,12 +78,19 @@ def create_report(report_in: schemas.ReportCreate, db: Session = Depends(get_db)
     db.refresh(report)
     # Notification (MVP): console log; integrate Twilio/Email later
     print(
-        f"NOTIFY: Bin {bin_obj.id} at '{bin_obj.location}' reported as {report.status} "
-        f"[lat={bin_obj.latitude}, lng={bin_obj.longitude}]"
+        (
+            f"NOTIFY: Bin {bin_obj.id} at '{bin_obj.location}' reported as "
+            f"{report.status} [lat={bin_obj.latitude}, "
+            f"lng={bin_obj.longitude}]"
+        )
     )
     return report
 
 
 @router.get("/reports", response_model=List[schemas.ReportRead])
 def list_reports(db: Session = Depends(get_db)):
-    return db.query(models.Report).order_by(models.Report.created_at.desc()).all()
+    return (
+        db.query(models.Report)
+        .order_by(models.Report.created_at.desc())
+        .all()
+    )
