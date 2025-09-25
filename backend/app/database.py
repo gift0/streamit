@@ -3,14 +3,22 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 from dotenv import load_dotenv
 
-# Load environment variables from .env if present
+# Load environment variables from .env
 load_dotenv()
 
-DATABASE_URL = os.getenv("postgresql://postgres:Mypostgresqlpassword7@localhost:5432/Gift_server")
+# Correctly get the DATABASE_URL from .env
+DATABASE_URL = os.getenv("DATABASE_URL")
 
+# Create SQLAlchemy engine
 engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+
+# Create a configured "Session" class
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+# Base class for models
 Base = declarative_base()
+
+# Dependency to get DB session
 
 
 def get_db():
@@ -18,4 +26,4 @@ def get_db():
     try:
         yield db
     finally:
-        db.close() 
+        db.close()
