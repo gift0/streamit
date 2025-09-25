@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 # Load environment variables from .env if present
 load_dotenv()
 
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+psycopg2://postgres:postgres@localhost:5432/dumptrac")
+DATABASE_URL = os.getenv("postgresql://postgres:Mypostgresqlpassword7@localhost:5432/Gift_server")
 
 engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
