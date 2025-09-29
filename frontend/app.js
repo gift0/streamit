@@ -87,33 +87,22 @@ function onIndexPage() {
 	});
 }
 
-// Load reports and bins
+// Load reports and bins safely
 async function loadReports() {
-	const [reports, bins] = await Promise.all([
-		api("/reports"),
-		api("/bins"),
-	]);
-	const binIdToBin = new Map(bins.map(b => [b.id, b]));
-	return { reports, binIdToBin };
-}
-
-// Mark a single report as cleared
-async function clearReport(reportId) {
+	let reports = [];
+	let bins = [];
 	try {
-		await api(`/reports/${reportId}/clear`, { method: "PUT" });
-		refreshDashboard();
+		reports = await api("/reports");
 	} catch (err) {
-		alert("Error clearing report: " + err.message);
+		console.error("Failed to fetch reports:", err);
 	}
-}
-
-// Clear all pending reports
-async function clearAllReports(reports) {
-	const pendingReports = reports.filter(r => r.status !== "done");
-	for (const r of pendingReports) {
-		await clearReport(r.id);
+	try {
+		bins = await api("/bins");
+	} catch (err) {
+		console.error("Failed to fetch bins:", err);
 	}
-	alert("All pending reports cleared!");
+	const binIdToBin = new Map((bins || []).map(b => [b.id, b]));
+	return { reports: reports || [], binIdToBin };
 }
 
 // Render table
@@ -121,9 +110,11 @@ function renderReportsTable(reports, binIdToBin) {
 	const tableBody = document.querySelector("#reports-table tbody");
 	if (!tableBody) return;
 	tableBody.innerHTML = "";
-
 	for (const r of reports) {
 		const b = binIdToBin.get(r.bin_id) || {};
+		const clearedDate = r.cleared_at ? new Date(r.cleared_at).toLocaleString() : "-";
+		const statusText = r.status === "done" ? `Done (${clearedDate})` : r.status;
+
 		const tr = document.createElement("tr");
 		tr.innerHTML = `
 			<td>${r.id}</td>
@@ -131,18 +122,13 @@ function renderReportsTable(reports, binIdToBin) {
 			<td>${b.location || "-"}</td>
 			<td>${b.latitude ?? "-"}</td>
 			<td>${b.longitude ?? "-"}</td>
-			<td><span class="status ${r.status}">${r.status}</span></td>
+			<td>${statusText}</td>
 			<td>${new Date(r.created_at).toLocaleString()}</td>
-			<td>${r.cleared_at ? new Date(r.cleared_at).toLocaleString() : "-"}</td>
-			<td>
-				<button class="clear-btn" ${r.status === 'done' ? 'disabled' : ''} onclick="clearReport(${r.id})">Mark as Cleared</button>
-			</td>
 		`;
 		tableBody.appendChild(tr);
 	}
-
 	if (reports.length === 0) {
-		tableBody.innerHTML = "<tr><td colspan=9>No reports yet</td></tr>";
+		tableBody.innerHTML = "<tr><td colspan=7>No reports yet</td></tr>";
 	}
 }
 
@@ -154,7 +140,7 @@ function ensureMap() {
 	const mapEl = document.getElementById("map");
 	if (!mapEl) return null;
 	if (!mapInstance) {
-		mapInstance = L.map("map").setView([6.5244, 3.3792], 11);
+		mapInstance = L.map("map").setView([6.5244, 3.3792], 11); // Lagos
 		L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 			maxZoom: 19,
 			attribution: '© OpenStreetMap'
@@ -164,7 +150,7 @@ function ensureMap() {
 	return mapInstance;
 }
 
-// Render markers
+// Render markers with Red → Green and tooltip
 function renderMapMarkers(reports, binIdToBin) {
 	const map = ensureMap();
 	if (!map || !markersLayer) return;
@@ -172,16 +158,13 @@ function renderMapMarkers(reports, binIdToBin) {
 
 	for (const r of reports) {
 		const b = binIdToBin.get(r.bin_id);
-		if (!b || typeof b.latitude !== "number" || typeof b.longitude !== "number") continue;
+		if (!b || b.latitude == null || b.longitude == null) continue;
 
-		// Determine marker color and tooltip based on report status
-		let markerColor = "red";
-		let tooltipText = `${b.location || 'Unknown location'} - Bin Full`;
-
-		if (r.status === "done") {
-			markerColor = "green";  // cleared marker
-			const clearedDate = r.cleared_at ? new Date(r.cleared_at).toLocaleString() : "";
-			tooltipText = `${b.location || 'Unknown location'} - Done${clearedDate ? ` (Cleared: ${clearedDate})` : ""}`;
+		let markerColor = r.status === "done" ? "green" : "red";
+		let label = r.status === "done" ? "Done" : "Bin Full";
+		let tooltipText = `${b.location || "Unknown location"} - ${label}`;
+		if (r.status === "done" && r.cleared_at) {
+			tooltipText += ` (Cleared: ${new Date(r.cleared_at).toLocaleString()})`;
 		}
 
 		const binIcon = L.divIcon({
@@ -193,7 +176,7 @@ function renderMapMarkers(reports, binIdToBin) {
 				border-radius:4px;
 				text-align:center;
 				box-shadow:0 0 3px #000;
-			">${r.status === "done" ? "Done" : "Bin Full"}</div>`,
+			">${label}</div>`,
 			className: '',
 			iconSize: [60, 24],
 			iconAnchor: [30, 12],
@@ -205,36 +188,43 @@ function renderMapMarkers(reports, binIdToBin) {
 	}
 }
 
-
-// Refresh dashboard
+// Refresh dashboard safely
 async function refreshDashboard() {
 	const tableBody = document.querySelector("#reports-table tbody");
-	if (tableBody) tableBody.innerHTML = "<tr><td colspan=9>Loading...</td></tr>";
+	if (tableBody) tableBody.innerHTML = "<tr><td colspan=7>Loading...</td></tr>";
 	try {
 		const { reports, binIdToBin } = await loadReports();
 		renderReportsTable(reports, binIdToBin);
 		renderMapMarkers(reports, binIdToBin);
-
-		// Add Clear All button dynamically
-		const controls = document.querySelector(".controls");
-		if (!document.getElementById("clear-all") && reports.some(r => r.status !== "done")) {
-			const clearAllBtn = document.createElement("button");
-			clearAllBtn.id = "clear-all";
-			clearAllBtn.textContent = "Clear All";
-			clearAllBtn.className = "clear-btn";
-			clearAllBtn.addEventListener("click", () => clearAllReports(reports));
-			controls.appendChild(clearAllBtn);
-		}
-
 	} catch (err) {
-		if (tableBody) tableBody.innerHTML = `<tr><td colspan=9>Error: ${err.message || err}</td></tr>`;
+		if (tableBody) tableBody.innerHTML = `<tr><td colspan=7>Error loading data: ${err.message || err}</td></tr>`;
 	}
 }
 
+// Mark all reports as done
+async function markAllDone() {
+	try {
+		const { reports } = await loadReports();
+		for (const r of reports) {
+			if (r.status !== "done") {
+				await api(`/reports/${r.id}/clear`, { method: "PUT" });
+			}
+		}
+		await refreshDashboard();
+		alert("All reports marked as done!");
+	} catch (err) {
+		alert(`Failed to mark all done: ${err.message || err}`);
+	}
+}
+
+// Dashboard page
 function onDashboardPage() {
 	const refreshBtn = document.getElementById("refresh");
-	if (!refreshBtn) return;
-	refreshBtn.addEventListener("click", refreshDashboard);
+	if (refreshBtn) refreshBtn.addEventListener("click", refreshDashboard);
+
+	const markAllBtn = document.getElementById("mark-all-done");
+	if (markAllBtn) markAllBtn.addEventListener("click", markAllDone);
+
 	refreshDashboard();
 }
 
