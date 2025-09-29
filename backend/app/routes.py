@@ -1,14 +1,14 @@
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from datetime import datetime
 
 from .database import get_db
 from . import models, schemas
 
 router = APIRouter()
 
-# Bins
-
+# ----------------- Bins -----------------
 
 @router.post("/bins", response_model=schemas.BinRead)
 def create_bin(bin_in: schemas.BinCreate, db: Session = Depends(get_db)):
@@ -54,8 +54,8 @@ def get_bin(bin_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Bin not found")
     return bin_obj
 
-# Reports
 
+# ----------------- Reports -----------------
 
 @router.post("/reports", response_model=schemas.ReportRead)
 def create_report(
@@ -76,13 +76,11 @@ def create_report(
     db.add(report)
     db.commit()
     db.refresh(report)
-    # Notification (MVP): console log; integrate Twilio/Email later
+
+    # Simple Notification (console log for now)
     print(
-        (
-            f"NOTIFY: Bin {bin_obj.id} at '{bin_obj.location}' reported as "
-            f"{report.status} [lat={bin_obj.latitude}, "
-            f"lng={bin_obj.longitude}]"
-        )
+        f"NOTIFY: Bin {bin_obj.id} at '{bin_obj.location}' reported as "
+        f"{report.status} [lat={bin_obj.latitude}, lng={bin_obj.longitude}]"
     )
     return report
 
@@ -94,3 +92,17 @@ def list_reports(db: Session = Depends(get_db)):
         .order_by(models.Report.created_at.desc())
         .all()
     )
+
+
+@router.put("/reports/{report_id}/clear", response_model=schemas.ReportRead)
+def clear_report(report_id: int, db: Session = Depends(get_db)):
+    """Mark a report as cleared and set cleared_at timestamp."""
+    db_report = db.query(models.Report).filter(models.Report.id == report_id).first()
+    if not db_report:
+        raise HTTPException(status_code=404, detail="Report not found")
+
+    db_report.status = "done"
+    db_report.cleared_at = datetime.utcnow()
+    db.commit()
+    db.refresh(db_report)
+    return db_report
