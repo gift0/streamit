@@ -8,35 +8,18 @@
 	<link rel="stylesheet" href="./style.css" />
 	<style>
 		#map { width: 100%; height: 420px; border-radius: 10px; border: 1px solid #1f2937; }
-
-		table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-		th, td { border: 1px solid #ddd; padding: 10px; text-align: left; font-size: 14px; }
-		th { background: #14213D; color: white; }
-		tr:nth-child(even) { background: #f4f6f9; }
-
-		.status {
-			font-weight: bold;
-			padding: 4px 8px;
-			border-radius: 6px;
-			text-transform: capitalize;
-		}
-		.status.pending { background: #fde68a; color: #92400e; }
-		.status.full { background: #fca5a5; color: #7f1d1d; }
-		.status.done { background: #bbf7d0; color: #166534; }
-
-		.clear-btn {
-			padding: 4px 8px;
-			border-radius: 6px;
-			border: none;
-			background: #3b82f6;
-			color: white;
-			cursor: pointer;
-		}
-		.clear-btn:disabled { background: #9ca3af; cursor: not-allowed; }
+		.controls { margin-bottom: 10px; }
+		.controls button { margin-right: 10px; padding: 5px 10px; }
+		.table-container { overflow-x: auto; }
+		table { width: 100%; border-collapse: collapse; }
+		th, td { padding: 8px 12px; border: 1px solid #ccc; text-align: left; }
+		tr:nth-child(even) { background-color: #f9f9f9; }
 	</style>
 </head>
 <body>
-	<header></header>
+	<header>
+		<h1>DumpTrac Dashboard</h1>
+	</header>
 	<main>
 		<section class="card" style="margin-top:40px;">
 			<h2>Dump Zone</h2>
@@ -47,6 +30,7 @@
 			<h2>Recent Reports</h2>
 			<div class="controls">
 				<button id="refresh">Refresh</button>
+				<button id="mark-all-done">Mark All Done</button>
 			</div>
 			<div class="table-container">
 				<table id="reports-table">
@@ -59,8 +43,6 @@
 							<th>Lng</th>
 							<th>Status</th>
 							<th>Created At</th>
-							<th>Cleared At</th>
-							<th>Action</th>
 						</tr>
 					</thead>
 					<tbody></tbody>
@@ -76,69 +58,6 @@
 
 	<script src="./partials.js"></script>
 	<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-	<script>
-		async function fetchReports() {
-			try {
-				const res = await fetch("/api/bins");
-				const bins = await res.json();
-				const tbody = document.querySelector("#reports-table tbody");
-				tbody.innerHTML = "";
-
-				if (!bins.length) {
-					tbody.innerHTML = `<tr><td colspan="9">No reports found.</td></tr>`;
-					return;
-				}
-
-				bins.forEach(bin => {
-					if (bin.reports.length === 0) {
-						tbody.innerHTML += `
-							<tr>
-								<td colspan="9">No reports for Bin ${bin.id} (${bin.location})</td>
-							</tr>`;
-					} else {
-						bin.reports.forEach(report => {
-							tbody.innerHTML += `
-								<tr>
-									<td>${report.id}</td>
-									<td>${bin.id}</td>
-									<td>${bin.location}</td>
-									<td>${bin.latitude || ""}</td>
-									<td>${bin.longitude || ""}</td>
-									<td><span class="status ${report.status}">${report.status}</span></td>
-									<td>${new Date(report.created_at).toLocaleString()}</td>
-									<td>${report.cleared_at ? new Date(report.cleared_at).toLocaleString() : "-"}</td>
-									<td>
-										<button class="clear-btn" ${report.status === 'done' ? 'disabled' : ''} onclick="clearReport(${report.id})">
-											Mark as Cleared
-										</button>
-									</td>
-								</tr>`;
-						});
-					}
-				});
-			} catch (err) {
-				console.error("Error fetching reports:", err);
-				document.querySelector("#reports-table tbody").innerHTML =
-					`<tr><td colspan="9">Error loading data.</td></tr>`;
-			}
-		}
-
-		async function clearReport(reportId) {
-			try {
-				const res = await fetch(`/api/reports/${reportId}/clear`, {
-					method: "PUT"
-				});
-				if (!res.ok) throw new Error("Failed to clear report");
-				fetchReports(); // refresh table
-			} catch (err) {
-				alert("Error clearing report: " + err.message);
-			}
-		}
-
-		document.getElementById("refresh").addEventListener("click", fetchReports);
-		fetchReports();
-		setInterval(fetchReports, 15000); // auto-refresh every 15s
-	</script>
 	<script src="./app.js"></script>
 </body>
 </html>
