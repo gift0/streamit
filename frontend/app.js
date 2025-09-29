@@ -16,13 +16,31 @@ async function api(path, options = {}) {
 
 // Ensure bin exists
 async function ensureBin(location, latitude, longitude) {
-	return api("/bins", { method: "POST", body: { location, latitude, longitude } });
+	return api("/bins", {
+		method: "POST",
+		body: {
+			location,
+			latitude: String(latitude),  // Convert to string
+			longitude: String(longitude) // Convert to string
+		}
+	});
 }
 
 // Submit report
 async function submitReport(location, latitude, longitude) {
 	const bin = await ensureBin(location, latitude, longitude);
-	return api("/reports", { method: "POST", body: { bin_id: bin.id, status: "full" } });
+	return api("/reports", {
+		method: "POST",
+		body: {
+			bin_id: bin.id,
+			status: "full"
+		}
+	});
+}
+
+// Clear a single report
+async function clearReport(reportId) {
+	return api(`/reports/${reportId}/clear`, { method: "PUT" });
 }
 
 // Index page: handle form submission
@@ -81,54 +99,65 @@ function onIndexPage() {
 			latEl.value = "";
 			lngEl.value = "";
 			geoStatus.textContent = "";
+			refreshDashboard(); // Refresh table and map
 		} catch (err) {
 			status.textContent = `Error: ${err.message || err}`;
 		}
 	});
 }
 
-// Load reports and bins safely
+// Load reports and bins
 async function loadReports() {
-	let reports = [];
-	let bins = [];
-	try {
-		reports = await api("/reports");
-	} catch (err) {
-		console.error("Failed to fetch reports:", err);
-	}
-	try {
-		bins = await api("/bins");
-	} catch (err) {
-		console.error("Failed to fetch bins:", err);
-	}
-	const binIdToBin = new Map((bins || []).map(b => [b.id, b]));
-	return { reports: reports || [], binIdToBin };
+	const [reports, bins] = await Promise.all([
+		api("/reports"),
+		api("/bins"),
+	]);
+	const binIdToBin = new Map(bins.map(b => [b.id, b]));
+	return { reports, binIdToBin };
 }
 
-// Render table
+// Render table with individual "Clear" button
 function renderReportsTable(reports, binIdToBin) {
 	const tableBody = document.querySelector("#reports-table tbody");
 	if (!tableBody) return;
 	tableBody.innerHTML = "";
+
 	for (const r of reports) {
 		const b = binIdToBin.get(r.bin_id) || {};
-		const clearedDate = r.cleared_at ? new Date(r.cleared_at).toLocaleString() : "-";
-		const statusText = r.status === "done" ? `Done (${clearedDate})` : r.status;
-
 		const tr = document.createElement("tr");
+
+		const clearedDate = r.cleared_at ? new Date(r.cleared_at).toLocaleString() : "";
+
 		tr.innerHTML = `
 			<td>${r.id}</td>
 			<td>${r.bin_id}</td>
 			<td>${b.location || "-"}</td>
 			<td>${b.latitude ?? "-"}</td>
 			<td>${b.longitude ?? "-"}</td>
-			<td>${statusText}</td>
+			<td>${r.status}</td>
 			<td>${new Date(r.created_at).toLocaleString()}</td>
+			<td>${clearedDate}</td>
+			<td>${r.status !== "done" ? `<button class="clear-btn" data-id="${r.id}">Clear</button>` : ""}</td>
 		`;
+
 		tableBody.appendChild(tr);
 	}
+
+	// Attach clear button listeners
+	document.querySelectorAll(".clear-btn").forEach(btn => {
+		btn.addEventListener("click", async () => {
+			const reportId = btn.dataset.id;
+			try {
+				await clearReport(reportId);
+				refreshDashboard();
+			} catch (err) {
+				alert(`Error clearing report: ${err.message || err}`);
+			}
+		});
+	});
+
 	if (reports.length === 0) {
-		tableBody.innerHTML = "<tr><td colspan=7>No reports yet</td></tr>";
+		tableBody.innerHTML = "<tr><td colspan=9>No reports yet</td></tr>";
 	}
 }
 
@@ -150,7 +179,7 @@ function ensureMap() {
 	return mapInstance;
 }
 
-// Render markers with Red → Green and tooltip
+// Render markers with dynamic color + tooltip
 function renderMapMarkers(reports, binIdToBin) {
 	const map = ensureMap();
 	if (!map || !markersLayer) return;
@@ -158,18 +187,15 @@ function renderMapMarkers(reports, binIdToBin) {
 
 	for (const r of reports) {
 		const b = binIdToBin.get(r.bin_id);
-		if (!b || b.latitude == null || b.longitude == null) continue;
+		if (!b || typeof b.latitude !== "number" || typeof b.longitude !== "number") continue;
 
-		let markerColor = r.status === "done" ? "green" : "red";
-		let label = r.status === "done" ? "Done" : "Bin Full";
-		let tooltipText = `${b.location || "Unknown location"} - ${label}`;
-		if (r.status === "done" && r.cleared_at) {
-			tooltipText += ` (Cleared: ${new Date(r.cleared_at).toLocaleString()})`;
-		}
+		const isDone = r.status === "done";
+		const color = isDone ? "green" : "red";
+		const label = isDone ? `Done: ${new Date(r.cleared_at).toLocaleString()}` : "Bin Full";
 
 		const binIcon = L.divIcon({
 			html: `<div style="
-				background-color:${markerColor};
+				background-color:${color};
 				color:white;
 				font-weight:bold;
 				padding:2px 6px;
@@ -178,53 +204,43 @@ function renderMapMarkers(reports, binIdToBin) {
 				box-shadow:0 0 3px #000;
 			">${label}</div>`,
 			className: '',
-			iconSize: [60, 24],
-			iconAnchor: [30, 12],
+			iconSize: [80, 24],
+			iconAnchor: [40, 12],
 		});
 
 		const marker = L.marker([b.latitude, b.longitude], { icon: binIcon });
-		marker.bindTooltip(tooltipText, { permanent: false, direction: 'top', offset: [0, -10] });
+
+		const tooltipText = isDone
+			? `${b.location || 'Unknown'} - Done: ${new Date(r.cleared_at).toLocaleString()}`
+			: `${b.location || 'Unknown'} - Bin Full`;
+
+		marker.bindTooltip(tooltipText, {
+			permanent: false,
+			direction: 'top',
+			offset: [0, -10]
+		});
+
 		markersLayer.addLayer(marker);
 	}
 }
 
-// Refresh dashboard safely
+// Refresh table + map
 async function refreshDashboard() {
 	const tableBody = document.querySelector("#reports-table tbody");
-	if (tableBody) tableBody.innerHTML = "<tr><td colspan=7>Loading...</td></tr>";
+	if (tableBody) tableBody.innerHTML = "<tr><td colspan=9>Loading...</td></tr>";
 	try {
 		const { reports, binIdToBin } = await loadReports();
 		renderReportsTable(reports, binIdToBin);
 		renderMapMarkers(reports, binIdToBin);
 	} catch (err) {
-		if (tableBody) tableBody.innerHTML = `<tr><td colspan=7>Error loading data: ${err.message || err}</td></tr>`;
+		if (tableBody) tableBody.innerHTML = `<tr><td colspan=9>Error loading data: ${err.message || err}</td></tr>`;
 	}
 }
 
-// Mark all reports as done
-async function markAllDone() {
-	try {
-		const { reports } = await loadReports();
-		for (const r of reports) {
-			if (r.status !== "done") {
-				await api(`/reports/${r.id}/clear`, { method: "PUT" });
-			}
-		}
-		await refreshDashboard();
-		alert("All reports marked as done!");
-	} catch (err) {
-		alert(`Failed to mark all done: ${err.message || err}`);
-	}
-}
-
-// Dashboard page
 function onDashboardPage() {
 	const refreshBtn = document.getElementById("refresh");
-	if (refreshBtn) refreshBtn.addEventListener("click", refreshDashboard);
-
-	const markAllBtn = document.getElementById("mark-all-done");
-	if (markAllBtn) markAllBtn.addEventListener("click", markAllDone);
-
+	if (!refreshBtn) return;
+	refreshBtn.addEventListener("click", refreshDashboard);
 	refreshDashboard();
 }
 
