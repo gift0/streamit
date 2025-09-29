@@ -65,7 +65,6 @@ function onIndexPage() {
 		const lat = latEl.value ? parseFloat(latEl.value) : null;
 		const lng = lngEl.value ? parseFloat(lngEl.value) : null;
 
-		// Enforce mandatory geolocation
 		if (lat === null || lng === null) {
 			status.textContent = "Error: Please attach your current location before submitting.";
 			return;
@@ -98,11 +97,31 @@ async function loadReports() {
 	return { reports, binIdToBin };
 }
 
+// Mark a single report as cleared
+async function clearReport(reportId) {
+	try {
+		await api(`/reports/${reportId}/clear`, { method: "PUT" });
+		refreshDashboard();
+	} catch (err) {
+		alert("Error clearing report: " + err.message);
+	}
+}
+
+// Clear all pending reports
+async function clearAllReports(reports) {
+	const pendingReports = reports.filter(r => r.status !== "done");
+	for (const r of pendingReports) {
+		await clearReport(r.id);
+	}
+	alert("All pending reports cleared!");
+}
+
 // Render table
 function renderReportsTable(reports, binIdToBin) {
 	const tableBody = document.querySelector("#reports-table tbody");
 	if (!tableBody) return;
 	tableBody.innerHTML = "";
+
 	for (const r of reports) {
 		const b = binIdToBin.get(r.bin_id) || {};
 		const tr = document.createElement("tr");
@@ -112,13 +131,18 @@ function renderReportsTable(reports, binIdToBin) {
 			<td>${b.location || "-"}</td>
 			<td>${b.latitude ?? "-"}</td>
 			<td>${b.longitude ?? "-"}</td>
-			<td>${r.status}</td>
+			<td><span class="status ${r.status}">${r.status}</span></td>
 			<td>${new Date(r.created_at).toLocaleString()}</td>
+			<td>${r.cleared_at ? new Date(r.cleared_at).toLocaleString() : "-"}</td>
+			<td>
+				<button class="clear-btn" ${r.status === 'done' ? 'disabled' : ''} onclick="clearReport(${r.id})">Mark as Cleared</button>
+			</td>
 		`;
 		tableBody.appendChild(tr);
 	}
+
 	if (reports.length === 0) {
-		tableBody.innerHTML = "<tr><td colspan=7>No reports yet</td></tr>";
+		tableBody.innerHTML = "<tr><td colspan=9>No reports yet</td></tr>";
 	}
 }
 
@@ -130,7 +154,7 @@ function ensureMap() {
 	const mapEl = document.getElementById("map");
 	if (!mapEl) return null;
 	if (!mapInstance) {
-		mapInstance = L.map("map").setView([6.5244, 3.3792], 11); // Lagos
+		mapInstance = L.map("map").setView([6.5244, 3.3792], 11);
 		L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 			maxZoom: 19,
 			attribution: '© OpenStreetMap'
@@ -140,7 +164,7 @@ function ensureMap() {
 	return mapInstance;
 }
 
-// Updated marker rendering: red, clickable, tooltip with "Bin Full"
+// Render markers
 function renderMapMarkers(reports, binIdToBin) {
 	const map = ensureMap();
 	if (!map || !markersLayer) return;
@@ -150,7 +174,6 @@ function renderMapMarkers(reports, binIdToBin) {
 		const b = binIdToBin.get(r.bin_id);
 		if (!b || typeof b.latitude !== "number" || typeof b.longitude !== "number") continue;
 
-		// Red "Bin Full" div icon
 		const binIcon = L.divIcon({
 			html: `<div style="
 				background-color:red;
@@ -167,14 +190,11 @@ function renderMapMarkers(reports, binIdToBin) {
 		});
 
 		const marker = L.marker([b.latitude, b.longitude], { icon: binIcon });
-
-		// Tooltip on hover with location + "Bin Full"
 		marker.bindTooltip(`${b.location || 'Unknown location'} - Bin Full`, {
 			permanent: false,
 			direction: 'top',
 			offset: [0, -10]
 		});
-
 		markersLayer.addLayer(marker);
 	}
 }
@@ -182,13 +202,25 @@ function renderMapMarkers(reports, binIdToBin) {
 // Refresh dashboard
 async function refreshDashboard() {
 	const tableBody = document.querySelector("#reports-table tbody");
-	if (tableBody) tableBody.innerHTML = "<tr><td colspan=7>Loading...</td></tr>";
+	if (tableBody) tableBody.innerHTML = "<tr><td colspan=9>Loading...</td></tr>";
 	try {
 		const { reports, binIdToBin } = await loadReports();
 		renderReportsTable(reports, binIdToBin);
 		renderMapMarkers(reports, binIdToBin);
+
+		// Add Clear All button dynamically
+		const controls = document.querySelector(".controls");
+		if (!document.getElementById("clear-all") && reports.some(r => r.status !== "done")) {
+			const clearAllBtn = document.createElement("button");
+			clearAllBtn.id = "clear-all";
+			clearAllBtn.textContent = "Clear All";
+			clearAllBtn.className = "clear-btn";
+			clearAllBtn.addEventListener("click", () => clearAllReports(reports));
+			controls.appendChild(clearAllBtn);
+		}
+
 	} catch (err) {
-		if (tableBody) tableBody.innerHTML = `<tr><td colspan=7>Error: ${err.message || err}</td></tr>`;
+		if (tableBody) tableBody.innerHTML = `<tr><td colspan=9>Error: ${err.message || err}</td></tr>`;
 	}
 }
 
