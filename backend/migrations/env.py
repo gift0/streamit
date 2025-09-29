@@ -1,28 +1,33 @@
+import sys
 import os
 from logging.config import fileConfig
+
 from sqlalchemy import engine_from_config, pool
 from alembic import context
-from dotenv import load_dotenv
 
-# Load environment variables
+# ✅ Add the project root to sys.path (so "app" can be imported)
+sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
+
+from app.database import Base  # Import your Base
+from app import models  # Import models to register them
+
+# Load env variables
+from dotenv import load_dotenv
 load_dotenv()
 
-# this is the Alembic Config object
+# Alembic Config object
 config = context.config
 
-# Override sqlalchemy.url with DATABASE_URL from .env
+# ✅ Override sqlalchemy.url with DATABASE_URL from .env
 DATABASE_URL = os.getenv("DATABASE_URL")
 if DATABASE_URL:
     config.set_main_option("sqlalchemy.url", DATABASE_URL)
 
-# Interpret the config file for Python logging
+# Logging
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Import your models for metadata
-from app.database import Base
-from app import models
-
+# Target metadata
 target_metadata = Base.metadata
 
 
@@ -49,10 +54,7 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
-        context.configure(
-            connection=connection,
-            target_metadata=target_metadata,
-        )
+        context.configure(connection=connection, target_metadata=target_metadata)
 
         with context.begin_transaction():
             context.run_migrations()
