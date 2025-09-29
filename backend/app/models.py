@@ -1,19 +1,28 @@
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey, func
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, func
 from sqlalchemy.orm import relationship
-from app.database import Base
+from .database import Base
+
+
+class Bin(Base):
+    __tablename__ = "bins"
+
+    id = Column(Integer, primary_key=True, index=True)
+    location = Column(String, unique=True, index=True)
+    latitude = Column(String, nullable=True)
+    longitude = Column(String, nullable=True)
+
+    # Relationship with reports
+    reports = relationship("Report", back_populates="bin", cascade="all, delete-orphan")
+
 
 class Report(Base):
     __tablename__ = "reports"
 
     id = Column(Integer, primary_key=True, index=True)
-    title = Column(String, nullable=False)
-    description = Column(String, nullable=True)
+    bin_id = Column(Integer, ForeignKey("bins.id", ondelete="CASCADE"), nullable=False)
+    status = Column(String, index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
-
-    # ✅ New column
     cleared_at = Column(DateTime(timezone=True), nullable=True)
 
-    # Example relationship if you have users
-    user_id = Column(Integer, ForeignKey("users.id"))
-    user = relationship("User", back_populates="reports")
+    # Relationship with Bin
+    bin = relationship("Bin", back_populates="reports")
