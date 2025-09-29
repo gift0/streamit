@@ -174,30 +174,37 @@ function renderMapMarkers(reports, binIdToBin) {
 		const b = binIdToBin.get(r.bin_id);
 		if (!b || typeof b.latitude !== "number" || typeof b.longitude !== "number") continue;
 
+		// Determine marker color and tooltip based on report status
+		let markerColor = "red";
+		let tooltipText = `${b.location || 'Unknown location'} - Bin Full`;
+
+		if (r.status === "done") {
+			markerColor = "green";  // cleared marker
+			const clearedDate = r.cleared_at ? new Date(r.cleared_at).toLocaleString() : "";
+			tooltipText = `${b.location || 'Unknown location'} - Done${clearedDate ? ` (Cleared: ${clearedDate})` : ""}`;
+		}
+
 		const binIcon = L.divIcon({
 			html: `<div style="
-				background-color:red;
+				background-color:${markerColor};
 				color:white;
 				font-weight:bold;
 				padding:2px 6px;
 				border-radius:4px;
 				text-align:center;
 				box-shadow:0 0 3px #000;
-			">Bin Full</div>`,
+			">${r.status === "done" ? "Done" : "Bin Full"}</div>`,
 			className: '',
 			iconSize: [60, 24],
 			iconAnchor: [30, 12],
 		});
 
 		const marker = L.marker([b.latitude, b.longitude], { icon: binIcon });
-		marker.bindTooltip(`${b.location || 'Unknown location'} - Bin Full`, {
-			permanent: false,
-			direction: 'top',
-			offset: [0, -10]
-		});
+		marker.bindTooltip(tooltipText, { permanent: false, direction: 'top', offset: [0, -10] });
 		markersLayer.addLayer(marker);
 	}
 }
+
 
 // Refresh dashboard
 async function refreshDashboard() {
