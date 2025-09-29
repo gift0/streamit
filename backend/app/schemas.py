@@ -1,14 +1,16 @@
 from datetime import datetime
-from typing import Optional, List
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
+from typing import List, Optional
 
+
+# ----------- Bin Schemas -----------
 
 class BinBase(BaseModel):
-    location: str = Field(..., example="5th Avenue Main St")
-    latitude: Optional[float] = Field(None, example=6.5244)
-    longitude: Optional[float] = Field(None, example=3.3792)
-  
-    
+    location: str
+    latitude: Optional[str] = None
+    longitude: Optional[str] = None
+
+
 class BinCreate(BinBase):
     pass
 
@@ -17,25 +19,30 @@ class BinRead(BinBase):
     id: int
 
     class Config:
-        from_attributes = True
-        
+        orm_mode = True
+
+
+# ----------- Report Schemas -----------
 
 class ReportBase(BaseModel):
-    status: str = Field("full", example="full")
+    status: str
 
 
 class ReportCreate(ReportBase):
-    bin_id: int
+    bin_id: int   # reports must belong to a bin
 
 
 class ReportRead(ReportBase):
     id: int
     bin_id: int
     created_at: datetime
+    cleared_at: Optional[datetime] = None
 
     class Config:
-        from_attributes = True
+        orm_mode = True
 
+
+# ----------- Bin with Reports -----------
 
 class BinWithReports(BinRead):
     reports: List[ReportRead] = []
