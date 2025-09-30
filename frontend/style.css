@@ -44,25 +44,25 @@ header .contact .info span { color: #334155; }
 .support-button:hover { background: #ffa400; color: #0f172a; box-shadow: 0 4px 12px rgba(255,164,0,0.25); }
 .support-button:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(255,164,0,0.35); }
 
-.pulse-ring {
+.marker-red {
   width: 20px;
   height: 20px;
   background: red;
   border-radius: 50%;
-  position: absolute;
-  left: 20px;
-  top: 20px;
+  position: relative;
   animation: pulse 1s infinite;
-  opacity: 0.7;
-  z-index: 1000;
 }
 
-.static-green {
-  background-color: green;
+.marker-green {
+  width: 24px;
+  height: 24px;
+  background: green;
   color: white;
   text-align: center;
-  padding: 2px 6px;
-  border-radius: 4px;
+  line-height: 24px;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: bold;
 }
 
 @keyframes pulse {
@@ -70,6 +70,7 @@ header .contact .info span { color: #334155; }
   50% { transform: scale(1.3); opacity: 0.3; }
   100% { transform: scale(0.7); opacity: 0.7; }
 }
+
 
 
 /* Mobile: hide address and phone, keep socials */

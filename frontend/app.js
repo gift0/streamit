@@ -16,7 +16,10 @@ async function api(path, options = {}) {
 
 // Ensure bin exists
 async function ensureBin(location, latitude, longitude) {
-    return api("/bins", { method: "POST", body: { location: String(location), latitude: String(latitude), longitude: String(longitude) } });
+    return api("/bins", { 
+        method: "POST", 
+        body: { location: String(location), latitude: String(latitude), longitude: String(longitude) } 
+    });
 }
 
 // Submit report
@@ -47,9 +50,7 @@ function onIndexPage() {
                     lngEl.value = String(longitude);
                     geoStatus.textContent = `Attached coords: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
                 },
-                (err) => {
-                    geoStatus.textContent = `Location error: ${err.message}`;
-                },
+                (err) => { geoStatus.textContent = `Location error: ${err.message}`; },
                 { enableHighAccuracy: true, timeout: 10000 }
             );
         } catch (err) {
@@ -81,6 +82,7 @@ function onIndexPage() {
             latEl.value = "";
             lngEl.value = "";
             geoStatus.textContent = "";
+            await refreshDashboard();
         } catch (err) {
             status.textContent = `Error: ${err.message || err}`;
         }
@@ -89,10 +91,7 @@ function onIndexPage() {
 
 // Load reports and bins
 async function loadReports() {
-    const [reports, bins] = await Promise.all([
-        api("/reports"),
-        api("/bins"),
-    ]);
+    const [reports, bins] = await Promise.all([api("/reports"), api("/bins")]);
     const binIdToBin = new Map(bins.map(b => [b.id, b]));
     return { reports, binIdToBin };
 }
@@ -102,7 +101,7 @@ async function clearReport(reportId) {
     return api(`/reports/${reportId}/clear`, { method: "PUT" });
 }
 
-// Render table
+// Render table with Clear button
 function renderReportsTable(reports, binIdToBin) {
     const tableBody = document.querySelector("#reports-table tbody");
     if (!tableBody) return;
@@ -162,7 +161,7 @@ function ensureMap() {
     return mapInstance;
 }
 
-// Render map markers with pulsing effect for alerts
+// Render map markers with blinking effect
 function renderMapMarkers(reports, binIdToBin) {
     const map = ensureMap();
     if (!map || !markersLayer) return;
@@ -170,37 +169,36 @@ function renderMapMarkers(reports, binIdToBin) {
 
     for (const r of reports) {
         const b = binIdToBin.get(r.bin_id);
-        if (!b || typeof b.latitude !== "number" || typeof b.longitude !== "number") continue;
+        if (!b) continue;
+
+        const lat = parseFloat(b.latitude);
+        const lng = parseFloat(b.longitude);
+        if (isNaN(lat) || isNaN(lng)) continue;
 
         const isCleared = r.status === "done" && r.cleared_at;
-        const markerClass = isCleared ? 'static-green' : 'pulse-red';
+
+        const htmlContent = isCleared
+            ? `<div class="marker-green">Done</div>`
+            : `<div class="marker-red"></div>`; // pulsing red for alerts
+
+        const binIcon = L.divIcon({
+            html: htmlContent,
+            className: "",
+            iconSize: [24, 24],
+            iconAnchor: [12, 12]
+        });
+
         const tooltipText = isCleared
             ? `${b.location || 'Unknown location'} - Done at ${new Date(r.cleared_at).toLocaleString()}`
             : `${b.location || 'Unknown location'} - Bin Full`;
 
-        const htmlContent = isCleared
-            ? `<div class="${markerClass}">Done</div>`
-            : `<div class="pulse-ring"></div><div class="${markerClass}">Bin Full</div>`;
-
-        const binIcon = L.divIcon({
-            html: htmlContent,
-            className: '',
-            iconSize: [60, 60],
-            iconAnchor: [30, 30],
-        });
-
-        const marker = L.marker([b.latitude, b.longitude], { icon: binIcon });
-        marker.bindTooltip(tooltipText, {
-            permanent: false,
-            direction: 'top',
-            offset: [0, -10]
-        });
-
+        const marker = L.marker([lat, lng], { icon: binIcon });
+        marker.bindTooltip(tooltipText, { permanent: false, direction: 'top', offset: [0, -10] });
         markersLayer.addLayer(marker);
     }
 }
 
-// Refresh dashboard (table + map)
+// Refresh dashboard
 async function refreshDashboard() {
     const tableBody = document.querySelector("#reports-table tbody");
     if (tableBody) tableBody.innerHTML = "<tr><td colspan=8>Loading...</td></tr>";
