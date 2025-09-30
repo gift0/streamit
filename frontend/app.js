@@ -2,66 +2,146 @@ const BASE_URL = "http://127.0.0.1:8000/api";
 
 // Generic API helper
 async function api(path, options = {}) {
-	const res = await fetch(`${BASE_URL}${path}`, {
-		method: options.method || "GET",
-		headers: { "Content-Type": "application/json", ...(options.headers || {}) },
-		body: options.body ? JSON.stringify(options.body) : undefined,
-	});
-	if (!res.ok) {
-		const text = await res.text();
-		throw new Error(text || `Request failed: ${res.status}`);
-	}
-	return res.json();
+    const res = await fetch(`${BASE_URL}${path}`, {
+        method: options.method || "GET",
+        headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+        body: options.body ? JSON.stringify(options.body) : undefined,
+    });
+    if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || `Request failed: ${res.status}`);
+    }
+    return res.json();
+}
+
+// Ensure bin exists
+async function ensureBin(location, latitude, longitude) {
+    return api("/bins", { method: "POST", body: { location: String(location), latitude: String(latitude), longitude: String(longitude) } });
+}
+
+// Submit report
+async function submitReport(location, latitude, longitude) {
+    const bin = await ensureBin(location, latitude, longitude);
+    return api("/reports", { method: "POST", body: { bin_id: bin.id, status: "full" } });
+}
+
+// Index page: handle form submission
+function onIndexPage() {
+    const form = document.getElementById("report-form");
+    if (!form) return;
+
+    const status = document.getElementById("status");
+    const useLocationBtn = document.getElementById("use-location");
+    const geoStatus = document.getElementById("geo-status");
+    const latEl = document.getElementById("lat");
+    const lngEl = document.getElementById("lng");
+
+    useLocationBtn.addEventListener("click", async () => {
+        geoStatus.textContent = "Fetching location...";
+        try {
+            if (!navigator.geolocation) throw new Error("Geolocation not supported");
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    const { latitude, longitude } = pos.coords;
+                    latEl.value = String(latitude);
+                    lngEl.value = String(longitude);
+                    geoStatus.textContent = `Attached coords: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
+                },
+                (err) => {
+                    geoStatus.textContent = `Location error: ${err.message}`;
+                },
+                { enableHighAccuracy: true, timeout: 10000 }
+            );
+        } catch (err) {
+            geoStatus.textContent = `Error: ${err.message || err}`;
+        }
+    });
+
+    form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        status.textContent = "Submitting...";
+        const locationInput = document.getElementById("location");
+
+        const lat = latEl.value ? parseFloat(latEl.value) : null;
+        const lng = lngEl.value ? parseFloat(lngEl.value) : null;
+
+        if (lat === null || lng === null) {
+            status.textContent = "Error: Please attach your current location before submitting.";
+            return;
+        }
+
+        try {
+            const location = locationInput.value.trim();
+            if (!location) throw new Error("Location is required");
+
+            await submitReport(location, lat, lng);
+
+            status.textContent = "Report submitted. Thank you!";
+            locationInput.value = "";
+            latEl.value = "";
+            lngEl.value = "";
+            geoStatus.textContent = "";
+        } catch (err) {
+            status.textContent = `Error: ${err.message || err}`;
+        }
+    });
 }
 
 // Load reports and bins
 async function loadReports() {
-	const [reports, bins] = await Promise.all([api("/reports"), api("/bins")]);
-	const binIdToBin = new Map(bins.map(b => [b.id, b]));
-	return { reports, binIdToBin };
+    const [reports, bins] = await Promise.all([
+        api("/reports"),
+        api("/bins"),
+    ]);
+    const binIdToBin = new Map(bins.map(b => [b.id, b]));
+    return { reports, binIdToBin };
 }
 
-// Table rendering with individual clear button
+// Clear a single report
+async function clearReport(reportId) {
+    return api(`/reports/${reportId}/clear`, { method: "PUT" });
+}
+
+// Render table
 function renderReportsTable(reports, binIdToBin) {
-	const tableBody = document.querySelector("#reports-table tbody");
-	if (!tableBody) return;
-	tableBody.innerHTML = "";
+    const tableBody = document.querySelector("#reports-table tbody");
+    if (!tableBody) return;
+    tableBody.innerHTML = "";
 
-	for (const r of reports) {
-		const b = binIdToBin.get(r.bin_id) || {};
-		const tr = document.createElement("tr");
+    for (const r of reports) {
+        const b = binIdToBin.get(r.bin_id) || {};
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+            <td>${r.id}</td>
+            <td>${r.bin_id}</td>
+            <td>${b.location || "-"}</td>
+            <td>${b.latitude ?? "-"}</td>
+            <td>${b.longitude ?? "-"}</td>
+            <td>${r.status}</td>
+            <td>${new Date(r.created_at).toLocaleString()}</td>
+            <td>
+                ${r.status !== 'done' ? `<button class="clear-btn" data-id="${r.id}">Clear</button>` : "-"}
+            </td>
+        `;
+        tableBody.appendChild(tr);
+    }
 
-		const clearedDate = r.cleared_at ? new Date(r.cleared_at).toLocaleString() : "-";
+    // Attach event listeners for clear buttons
+    document.querySelectorAll(".clear-btn").forEach(btn => {
+        btn.addEventListener("click", async (e) => {
+            const id = e.target.dataset.id;
+            try {
+                await clearReport(id);
+                await refreshDashboard();
+            } catch (err) {
+                alert(`Error clearing report: ${err.message || err}`);
+            }
+        });
+    });
 
-		tr.innerHTML = `
-			<td>${r.id}</td>
-			<td>${r.bin_id}</td>
-			<td>${b.location || "-"}</td>
-			<td>${b.latitude ?? "-"}</td>
-			<td>${b.longitude ?? "-"}</td>
-			<td>${r.status}</td>
-			<td>${new Date(r.created_at).toLocaleString()}</td>
-			<td>${r.status === "done" ? clearedDate : `<button class="clear-btn" data-id="${r.id}">Clear</button>`}</td>
-		`;
-		tableBody.appendChild(tr);
-	}
-
-	// Attach click listeners for clear buttons
-	document.querySelectorAll(".clear-btn").forEach(btn => {
-		btn.addEventListener("click", async () => {
-			const reportId = btn.dataset.id;
-			try {
-				await api(`/reports/${reportId}/clear`, { method: "PUT" });
-				await refreshDashboard();
-			} catch (err) {
-				alert("Error clearing report: " + err.message);
-			}
-		});
-	});
-
-	if (reports.length === 0) {
-		tableBody.innerHTML = "<tr><td colspan=8>No reports yet</td></tr>";
-	}
+    if (reports.length === 0) {
+        tableBody.innerHTML = "<tr><td colspan=8>No reports yet</td></tr>";
+    }
 }
 
 // Map handling
@@ -69,81 +149,80 @@ let mapInstance = null;
 let markersLayer = null;
 
 function ensureMap() {
-	const mapEl = document.getElementById("map");
-	if (!mapEl) return null;
-	if (!mapInstance) {
-		mapInstance = L.map("map").setView([6.5244, 3.3792], 11); // Lagos
-		L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-			maxZoom: 19,
-			attribution: '© OpenStreetMap'
-		}).addTo(mapInstance);
-		markersLayer = L.layerGroup().addTo(mapInstance);
-	}
-	return mapInstance;
+    const mapEl = document.getElementById("map");
+    if (!mapEl) return null;
+    if (!mapInstance) {
+        mapInstance = L.map("map").setView([6.5244, 3.3792], 11); // Lagos
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap'
+        }).addTo(mapInstance);
+        markersLayer = L.layerGroup().addTo(mapInstance);
+    }
+    return mapInstance;
 }
 
-// Updated marker rendering: Red → Green + tooltip
+// Render map markers with pulsing effect for alerts
 function renderMapMarkers(reports, binIdToBin) {
-	const map = ensureMap();
-	if (!map || !markersLayer) return;
-	markersLayer.clearLayers();
+    const map = ensureMap();
+    if (!map || !markersLayer) return;
+    markersLayer.clearLayers();
 
-	for (const r of reports) {
-		const b = binIdToBin.get(r.bin_id);
-		if (!b || b.latitude == null || b.longitude == null) continue;
+    for (const r of reports) {
+        const b = binIdToBin.get(r.bin_id);
+        if (!b || typeof b.latitude !== "number" || typeof b.longitude !== "number") continue;
 
-		const lat = parseFloat(b.latitude);
-		const lng = parseFloat(b.longitude);
-		if (isNaN(lat) || isNaN(lng)) continue;
+        const isCleared = r.status === "done" && r.cleared_at;
+        const markerClass = isCleared ? 'static-green' : 'pulse-red';
+        const tooltipText = isCleared
+            ? `${b.location || 'Unknown location'} - Done at ${new Date(r.cleared_at).toLocaleString()}`
+            : `${b.location || 'Unknown location'} - Bin Full`;
 
-		const isDone = r.status === "done";
-		const tooltipText = isDone
-			? `${b.location || "Unknown location"} - Done: ${r.cleared_at ? new Date(r.cleared_at).toLocaleString() : ""}`
-			: `${b.location || "Unknown location"} - Bin Full`;
+        const htmlContent = isCleared
+            ? `<div class="${markerClass}">Done</div>`
+            : `<div class="pulse-ring"></div><div class="${markerClass}">Bin Full</div>`;
 
-		const binIcon = L.divIcon({
-			html: `<div style="
-				background-color:${isDone ? "green" : "red"};
-				color:white;
-				font-weight:bold;
-				padding:2px 6px;
-				border-radius:4px;
-				text-align:center;
-				box-shadow:0 0 3px #000;
-			">${isDone ? `Done` : "Bin Full"}</div>`,
-			className: '',
-			iconSize: [60, 24],
-			iconAnchor: [30, 12],
-		});
+        const binIcon = L.divIcon({
+            html: htmlContent,
+            className: '',
+            iconSize: [60, 60],
+            iconAnchor: [30, 30],
+        });
 
-		const marker = L.marker([lat, lng], { icon: binIcon });
-		marker.bindTooltip(tooltipText, { permanent: false, direction: 'top', offset: [0, -10] });
-		markersLayer.addLayer(marker);
-	}
+        const marker = L.marker([b.latitude, b.longitude], { icon: binIcon });
+        marker.bindTooltip(tooltipText, {
+            permanent: false,
+            direction: 'top',
+            offset: [0, -10]
+        });
+
+        markersLayer.addLayer(marker);
+    }
 }
 
-// Refresh dashboard: table + map
+// Refresh dashboard (table + map)
 async function refreshDashboard() {
-	const tableBody = document.querySelector("#reports-table tbody");
-	if (tableBody) tableBody.innerHTML = "<tr><td colspan=8>Loading...</td></tr>";
-	try {
-		const { reports, binIdToBin } = await loadReports();
-		renderReportsTable(reports, binIdToBin);
-		renderMapMarkers(reports, binIdToBin);
-	} catch (err) {
-		if (tableBody) tableBody.innerHTML = `<tr><td colspan=8>Error: ${err.message}</td></tr>`;
-	}
+    const tableBody = document.querySelector("#reports-table tbody");
+    if (tableBody) tableBody.innerHTML = "<tr><td colspan=8>Loading...</td></tr>";
+    try {
+        const { reports, binIdToBin } = await loadReports();
+        renderReportsTable(reports, binIdToBin);
+        renderMapMarkers(reports, binIdToBin);
+    } catch (err) {
+        if (tableBody) tableBody.innerHTML = `<tr><td colspan=8>Error loading data: ${err.message || err}</td></tr>`;
+    }
 }
 
-// Initialize dashboard
+// Dashboard page initialization
 function onDashboardPage() {
-	const refreshBtn = document.getElementById("refresh");
-	if (!refreshBtn) return;
-	refreshBtn.addEventListener("click", refreshDashboard);
-	refreshDashboard();
+    const refreshBtn = document.getElementById("refresh");
+    if (!refreshBtn) return;
+    refreshBtn.addEventListener("click", refreshDashboard);
+    refreshDashboard();
 }
 
 // Init
 window.addEventListener("DOMContentLoaded", () => {
-	onDashboardPage();
+    onIndexPage();
+    onDashboardPage();
 });
