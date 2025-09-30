@@ -45,8 +45,8 @@ header .contact .info span { color: #334155; }
 .support-button:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(255,164,0,0.35); }
 
 .marker-red {
-  width: 20px;
-  height: 20px;
+  width: 30px;
+  height: 30px;
   background: red;
   border-radius: 50%;
   position: relative;
@@ -54,14 +54,14 @@ header .contact .info span { color: #334155; }
 }
 
 .marker-green {
-  width: 24px;
-  height: 24px;
+  width: 30px;
+  height: 30px;
   background: green;
   color: white;
   text-align: center;
   line-height: 24px;
   border-radius: 50%;
-  font-size: 12px;
+  font-size: 9px;
   font-weight: bold;
 }
 
